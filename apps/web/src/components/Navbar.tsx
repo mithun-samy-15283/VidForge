@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Sparkles, Download, Music, Languages } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { AuthPanel } from '@/components/AuthPanel';
 
 const NAV_LINKS = [
   { href: '/',          label: 'Download',  icon: Download },
@@ -47,12 +48,7 @@ export function Navbar() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button className="px-4 py-2 text-sm hover:text-pink-400 transition">Sign in</button>
-        <button className="px-4 py-2 text-sm rounded-lg bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-90 transition">
-          Get Pro
-        </button>
-      </div>
+      <AuthPanel />
     </nav>
   );
 }

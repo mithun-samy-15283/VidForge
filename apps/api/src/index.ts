@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { resolve } from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -10,16 +11,22 @@ import { rateLimiter } from './middleware/rateLimiter';
 import videoRouter from './routes/video';
 import jobRouter from './routes/jobs';
 import healthRouter from './routes/health';
+import authRouter from './routes/auth';
+
+dotenv.config({ path: resolve(process.cwd(), '.env'), override: true });
+dotenv.config({ path: resolve(process.cwd(), '../../.env'), override: true });
 
 const app = express();
 const PORT = parseInt(process.env.API_PORT || '4000', 10);
 
+app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: process.env.WEB_URL || '*', credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(rateLimiter);
 
 app.use('/api/health', healthRouter);
+app.use('/api/auth', authRouter);
 app.use('/api/video', videoRouter);
 app.use('/api/jobs', jobRouter);
 

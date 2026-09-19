@@ -12,6 +12,7 @@ Download videos from any URL, then transform them with karaoke maker, auto subti
 - ⬆️ **AI Upscaling** (Real-ESRGAN)
 - ✂️ **Trim, Merge, Convert, GIF Maker**
 - 🔊 **Audio extraction & noise reduction**
+- 🔐 **Email auth** with JWT sign up / sign in
 
 ## 🏗️ Architecture
 
@@ -54,6 +55,12 @@ npm run dev
 ```
 
 Open: http://localhost:3000
+
+## 🔐 Auth Endpoints
+
+- `POST /api/auth/signup` → create user and return JWT
+- `POST /api/auth/signin` → authenticate and return JWT
+- `GET /api/auth/me` → fetch current user (`Authorization: Bearer <token>`)
 
 ## 📁 Project Structure
 
