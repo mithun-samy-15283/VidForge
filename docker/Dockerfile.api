@@ -1,0 +1,11 @@
+FROM node:20-alpine
+RUN apk add --no-cache ffmpeg python3 py3-pip
+RUN pip3 install --break-system-packages yt-dlp
+WORKDIR /app
+COPY package.json package-lock.json* ./
+COPY apps/api/package.json apps/api/
+RUN npm install --workspaces --include-workspace-root
+COPY . .
+RUN npm --workspace apps/api run build
+EXPOSE 4000
+CMD ["node", "apps/api/dist/index.js"]
