@@ -3,6 +3,7 @@
 import { api } from './api';
 
 const AUTH_TOKEN_KEY = 'vidforge.auth.token';
+export const AUTH_CHANGED_EVENT = 'vidforge:auth-changed';
 
 export interface AuthUser {
   id: string;
@@ -40,10 +41,12 @@ export function getAuthToken() {
 
 export function setAuthToken(token: string) {
   window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 export function clearAuthToken() {
   window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 export async function signup(email: string, password: string): Promise<AuthResponse> {
