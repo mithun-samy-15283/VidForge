@@ -92,7 +92,7 @@ Configure the following environment and storage:
 2. On `vidforge-api`, set `AI_ENGINE_URL` from `vidforge-ai`'s **hostport** service property, generate a secret value for `JWT_SECRET`, set `JWT_EXPIRES_IN=7d`, and set `STORAGE_DIR=/var/data/vidforge`.
 3. Attach a 1 GB persistent disk to `vidforge-api` at `/var/data/vidforge`.
 4. On `vidforge-ai`, set `MOCK_AI=true` and `AI_OUTPUT_DIR=/tmp/vidforge-ai-output`.
-5. Use `/`, `/api/health`, and `/health` as the web, API, and AI health-check paths respectively.
+5. Use `/` as the public web service health-check path. Render private services (`pserv`) do not accept `healthCheckPath`; the API and AI services still expose `/api/health` and `/health` for internal diagnostics.
 
 Render injects `PORT`; both backend services bind to it automatically. Values populated from Render's `hostport` property intentionally omit a URL scheme, and VidForge normalizes them to private `http://` service URLs.
 

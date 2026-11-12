@@ -21,7 +21,6 @@ services:
     plan: starter
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
-    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
@@ -51,7 +50,6 @@ services:
     plan: starter
     dockerfilePath: ./services/ai-engine/Dockerfile
     dockerContext: .
-    healthCheckPath: /health
     envVars:
       - key: MOCK_AI
         value: true
