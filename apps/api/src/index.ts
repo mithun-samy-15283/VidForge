@@ -17,7 +17,7 @@ dotenv.config({ path: resolve(process.cwd(), '.env'), override: true });
 dotenv.config({ path: resolve(process.cwd(), '../../.env'), override: true });
 
 const app = express();
-const PORT = parseInt(process.env.API_PORT || '4000', 10);
+const PORT = parseInt(process.env.PORT || process.env.API_PORT || '4000', 10);
 
 app.set('trust proxy', 1);
 app.use(helmet());

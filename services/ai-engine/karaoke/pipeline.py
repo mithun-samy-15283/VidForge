@@ -598,6 +598,19 @@ def run_pipeline(
             except Exception:
                 pass
 
+    if MOCK_AI:
+        report(20, "Mock processing source video")
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(video_path, output_path)
+        report(100, "Mock output ready")
+        return {
+            "output": output_path,
+            "segments": [],
+            "mock": True,
+            "separation_method": "mock",
+            "transcription_method": "mock",
+        }
+
     work = tempfile.mkdtemp(prefix="karaoke_")
     separation_method = "mock"
     transcription_method = "mock"

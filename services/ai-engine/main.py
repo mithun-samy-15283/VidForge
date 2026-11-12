@@ -3,18 +3,20 @@ VidForge AI Engine — FastAPI service.
 
 Endpoints:
   GET  /health              -> service status + capabilities
-  POST /karaoke             -> run karaoke pipeline on a local video file path
+  POST /karaoke             -> upload a video and start the karaoke pipeline
   GET  /jobs/{job_id}       -> poll job progress / result
+  GET  /jobs/{job_id}/file  -> download completed output
 """
 
 import os
+import shutil
 import uuid
 import logging
 import threading
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -47,16 +49,13 @@ JOBS_LOCK = threading.Lock()
 
 OUTPUT_DIR = Path(os.getenv("AI_OUTPUT_DIR", "/tmp/vidforge-ai-output"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+INPUT_DIR = OUTPUT_DIR / "inputs"
+INPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
-class KaraokeRequest(BaseModel):
-    video_path: str
-    output_filename: Optional[str] = None  # default: <jobid>.mp4
-
-
 class JobStatus(BaseModel):
     id: str
     state: str  # queued | running | completed | failed
@@ -98,6 +97,8 @@ def _run_karaoke_job(job_id: str, video_path: str, output_path: str):
     except Exception as e:
         logger.exception("karaoke job %s failed", job_id)
         _update_job(job_id, state="failed", error=str(e), label="Failed")
+    finally:
+        Path(video_path).unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -123,15 +124,22 @@ def health():
 
 
 @app.post("/karaoke", response_model=JobStatus)
-def create_karaoke_job(req: KaraokeRequest):
-    if not os.path.isfile(req.video_path):
-        raise HTTPException(
-            status_code=400,
-            detail=f"video_path not found: {req.video_path}",
-        )
-
+async def create_karaoke_job(
+    video: UploadFile = File(...),
+    output_filename: Optional[str] = Form(None),
+):
     job_id = uuid.uuid4().hex[:12]
-    out_name = req.output_filename or f"{job_id}.mp4"
+    suffix = Path(video.filename or "").suffix[:10] or ".mp4"
+    input_path = INPUT_DIR / f"{job_id}{suffix}"
+    with input_path.open("wb") as target:
+        shutil.copyfileobj(video.file, target)
+    await video.close()
+
+    if input_path.stat().st_size == 0:
+        input_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="uploaded video is empty")
+
+    out_name = Path(output_filename or f"{job_id}.mp4").name
     output_path = str(OUTPUT_DIR / out_name)
 
     with JOBS_LOCK:
@@ -149,7 +157,7 @@ def create_karaoke_job(req: KaraokeRequest):
 
     t = threading.Thread(
         target=_run_karaoke_job,
-        args=(job_id, req.video_path, output_path),
+        args=(job_id, str(input_path), output_path),
         daemon=True,
     )
     t.start()
@@ -166,12 +174,27 @@ def get_job(job_id: str):
     return JobStatus(**job)
 
 
+@app.get("/jobs/{job_id}/file")
+def get_job_file(job_id: str):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    if job["state"] != "completed":
+        raise HTTPException(status_code=409, detail="job not completed")
+
+    output = job.get("output")
+    if not output or not os.path.isfile(output):
+        raise HTTPException(status_code=404, detail="output file not found")
+    return FileResponse(output, filename=Path(output).name, media_type="video/mp4")
+
+
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=int(os.getenv("AI_PORT", "5000")),
+        port=int(os.getenv("PORT", os.getenv("AI_PORT", "5000"))),
         reload=False,
     )

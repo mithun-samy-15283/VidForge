@@ -1,0 +1,59 @@
+services:
+  - type: web
+    name: vidforge-web
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build:web
+    startCommand: npm --workspace apps/web run start -- -p $PORT
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_URL
+        fromService:
+          type: pserv
+          name: vidforge-api
+          property: hostport
+
+  - type: pserv
+    name: vidforge-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AI_ENGINE_URL
+        fromService:
+          type: pserv
+          name: vidforge-ai
+          property: hostport
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: STORAGE_DIR
+        value: /var/data/vidforge
+      - key: RATE_LIMIT_MAX
+        value: 30
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 60000
+    disk:
+      name: vidforge-api-data
+      mountPath: /var/data/vidforge
+      sizeGB: 1
+
+  - type: pserv
+    name: vidforge-ai
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./services/ai-engine/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: MOCK_AI
+        value: true
+      - key: AI_OUTPUT_DIR
+        value: /tmp/vidforge-ai-output
