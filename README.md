@@ -56,51 +56,118 @@ npm run dev
 
 Open: http://localhost:3000
 
-## Render demo deployment
+## Zero-cost public demo deployment
 
-The repository includes a Render Blueprint at [`render.yaml`](./render.yaml). It creates:
+The practical free architecture is:
 
-- `vidforge-web`: the public Next.js web service.
-- `vidforge-api`: a private Docker service with FFmpeg, yt-dlp support, a generated JWT secret, and a 1 GB persistent disk for users and generated files.
-- `vidforge-ai`: a private lightweight Docker service running FastAPI with `MOCK_AI=true`.
+```
+Vercel Hobby (apps/web) → Render Free web service (apps/api)
+                                      ├── in-process mock job processor
+                                      └── Supabase Free Postgres (optional users)
+```
 
-The web service proxies `/api/*` over Render's private network. The API uploads source media to the AI service and copies the rendered result back to its persistent disk, so the services do not rely on a shared filesystem.
+The public demo does not deploy Python, Whisper, or Demucs. With `MOCK_AI=true`,
+karaoke and subtitle jobs still download the source, report progress, and return
+a playable copy. This verifies the complete public job flow, but it does not
+remove vocals, transcribe speech, or burn captions. For local real karaoke
+processing, run `services/ai-engine`, set `MOCK_AI=false`, and set
+`AI_ENGINE_URL=http://localhost:5000`.
 
-### One-click Blueprint
+### Deploy in this order
 
-1. Push this repository to GitHub.
-2. Open [Deploy to Render](https://render.com/deploy?repo=https://github.com/mithun-samy-15283/VidForge).
-3. Connect GitHub if Render prompts you, select the repository, and approve the Blueprint.
-4. Review the service names and paid resources, then click **Apply**.
-5. Wait for all three health checks to pass, then open the `vidforge-web` URL shown by Render.
+#### 1. Supabase Free Postgres (optional but recommended)
 
-The Blueprint uses a free web service and two Starter private services; the API disk and private services are paid Render resources. Render generates `JWT_SECRET` automatically. Do not replace it after users have signed in unless you intend to invalidate existing tokens.
+1. Create a Free project at [Supabase](https://supabase.com/dashboard).
+2. Open **Connect**, choose the transaction pooler connection string (best for
+   Render's IPv4 networking), replace the password placeholder, and ensure the
+   URL includes `sslmode=require`.
+3. Keep this value for Render as `DATABASE_URL`. Do not expose it to Vercel or
+   commit it.
 
-### Manual Render setup
+No manual migration is required. The API automatically creates this minimal
+table on its first auth request:
 
-Create the services in the same Render region and use these settings:
+```sql
+CREATE TABLE IF NOT EXISTS vidforge_users (
+  id UUID PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
-| Service | Type/runtime | Build or Dockerfile | Start command |
-|---|---|---|---|
-| `vidforge-web` | Web / Node | `npm ci && npm run build:web` | `npm --workspace apps/web run start -- -p $PORT` |
-| `vidforge-api` | Private / Docker | `apps/api/Dockerfile` with repository-root Docker context | Dockerfile `CMD` |
-| `vidforge-ai` | Private / Docker | `services/ai-engine/Dockerfile` with repository-root Docker context | Dockerfile `CMD` |
+If `DATABASE_URL` is omitted, the API uses `STORAGE_DIR/users.json`. That
+fallback is suitable for local development only because Render Free storage is
+ephemeral.
 
-Configure the following environment and storage:
+#### 2. Render Free API
 
-1. On `vidforge-web`, set `API_URL` from `vidforge-api`'s **hostport** service property and set `NODE_ENV=production`.
-2. On `vidforge-api`, set `AI_ENGINE_URL` from `vidforge-ai`'s **hostport** service property, generate a secret value for `JWT_SECRET`, set `JWT_EXPIRES_IN=7d`, and set `STORAGE_DIR=/var/data/vidforge`.
-3. Attach a 1 GB persistent disk to `vidforge-api` at `/var/data/vidforge`.
-4. On `vidforge-ai`, set `MOCK_AI=true` and `AI_OUTPUT_DIR=/tmp/vidforge-ai-output`.
-5. Use `/` as the public web service health-check path. Render private services (`pserv`) do not accept `healthCheckPath`; the API and AI services still expose `/api/health` and `/health` for internal diagnostics.
+1. Push the repository to GitHub, then open
+   [Deploy to Render](https://render.com/deploy?repo=https://github.com/mithun-samy-15283/VidForge).
+2. Apply [`render.yaml`](./render.yaml). It creates only one public
+   `vidforge-api` Docker web service on the Free plan, with no disk or private
+   services.
+3. Set `WEB_URL` to the exact Vercel production origin you intend to use, such
+   as `https://vidforge-demo.vercel.app`. Multiple origins are comma-separated;
+   preview deployments can use a scoped pattern such as
+   `https://vidforge-demo-*.vercel.app`.
+4. Set `DATABASE_URL` to the Supabase pooler URL, or leave it unset to use the
+   non-durable JSON fallback.
+5. Deploy and verify `https://YOUR-RENDER-SERVICE.onrender.com/api/health`.
+   Save the service origin for Vercel's `API_URL`.
 
-Render injects `PORT`; both backend services bind to it automatically. Values populated from Render's `hostport` property intentionally omit a URL scheme, and VidForge normalizes them to private `http://` service URLs.
+Render generates `JWT_SECRET`. Do not rotate it unless you intend to invalidate
+existing login tokens. `STORAGE_DIR=/tmp/vidforge` intentionally stores job
+files only for the life of the free instance.
 
-### Mock-mode limitations
+#### 3. Vercel Hobby frontend
 
-`MOCK_AI=true` avoids installing Whisper, Demucs, PyTorch, Torchaudio, and AI-side FFmpeg. It returns an unchanged copy of the downloaded source as a fast, playable demo result; it does **not** remove vocals, transcribe lyrics, or burn karaoke subtitles into the video. The AI service stores only temporary processing files and loses them on restart after the API has copied completed output to its disk.
+1. Import the same GitHub repository into [Vercel](https://vercel.com/new).
+2. Select **Next.js**, set **Root Directory** to `apps/web`, and leave the
+   commands at the repository defaults; [`apps/web/vercel.json`](./apps/web/vercel.json)
+   pins the framework and build command.
+3. Add `API_URL=https://YOUR-RENDER-SERVICE.onrender.com` for Production,
+   Preview, and Development.
+4. Deploy. The Next.js server rewrites `/api/*` to Render, so API requests stay
+   same-origin in the browser.
+5. If Vercel assigned a different production domain than the planned
+   `WEB_URL`, update `WEB_URL` on Render and redeploy the API.
 
-The demo queue is in memory because the Blueprint does not provision Redis. Active jobs and job status are lost if the API restarts or redeploys, although completed files and registered users remain on the API disk. Add Render Key Value/Redis and set `REDIS_URL` for durable queue state before treating this as production.
+### Deployment environment variables
+
+| Service | Variable | Required | Value |
+|---|---|---:|---|
+| Render API | `WEB_URL` | Yes | Exact Vercel origin(s), comma-separated |
+| Render API | `JWT_SECRET` | Yes | Generated by Render Blueprint |
+| Render API | `JWT_EXPIRES_IN` | Yes | `7d` |
+| Render API | `MOCK_AI` | Yes for demo | `true` |
+| Render API | `DATABASE_URL` | No | Supabase Postgres pooler URL |
+| Render API | `STORAGE_DIR` | Yes | `/tmp/vidforge` |
+| Vercel web | `API_URL` | Yes | Public Render service origin |
+| Local API | `AI_ENGINE_URL` | No | Real Python AI engine origin |
+
+### Free-tier behavior and limits
+
+- **Render Free:** 750 free instance-hours per workspace each month. A service
+  idles after 15 minutes without inbound traffic and usually needs about a
+  minute to wake. Its filesystem is erased on restart, redeploy, or spin-down,
+  so active jobs, completed media, and JSON users are temporary.
+- **Vercel Hobby:** personal/non-commercial use, 100 GB Fast Data Transfer,
+  10 GB Fast Origin Transfer, 1,000,000 CDN requests, 4 Active CPU-hours, and
+  1,000,000 function invocations per month. Usage pauses when Hobby limits are
+  exhausted.
+- **Supabase Free:** two active projects, 500 MB database, 5 GB egress, and
+  1 GB file storage. Inactive projects pause after one week and may need to be
+  restored from the dashboard.
+
+Free-tier quotas change; confirm the current
+[Render limits](https://render.com/docs/free),
+[Vercel Hobby limits](https://vercel.com/docs/plans/hobby), and
+[Supabase pricing](https://supabase.com/pricing) before a public launch.
+
+The API queue falls back to memory because this architecture does not provision
+Redis. Jobs and status disappear whenever Render restarts. This is intentionally
+a public demo architecture, not a durable production media pipeline.
 
 ## 🔐 Auth Endpoints
 

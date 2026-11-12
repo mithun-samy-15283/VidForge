@@ -11,9 +11,10 @@ import { downloadVideo } from '../services/ytdlp';
 import { logger } from '../utils/logger';
 
 const STORAGE = path.resolve(process.env.STORAGE_DIR || './storage');
-const AI_URL = normalizeServiceUrl(
-  process.env.AI_ENGINE_URL || 'http://localhost:5000',
-);
+const AI_URL = process.env.AI_ENGINE_URL
+  ? normalizeServiceUrl(process.env.AI_ENGINE_URL)
+  : null;
+const MOCK_AI = parseBoolean(process.env.MOCK_AI, !AI_URL);
 const AI_POLL_INTERVAL_MS = 2000;
 const AI_MAX_WAIT_MS = 30 * 60 * 1000; // 30 min hard cap
 
@@ -69,8 +70,25 @@ export async function processKaraoke(
   logger.info({ jobId, file: absSource, size: fs.statSync(absSource).size }, 'Source video ready');
   await progress(25, 'Source video downloaded');
 
+  if (MOCK_AI || !AI_URL) {
+    const finalFile = path.join(
+      STORAGE,
+      `${jobId}-karaoke${path.extname(absSource) || '.mp4'}`,
+    );
+    await progress(70, 'Preparing demo karaoke output');
+    fs.copyFileSync(absSource, finalFile);
+    fs.rmSync(absSource, { force: true });
+    await progress(100, 'Done (demo mode)');
+    return {
+      file: finalFile,
+      mock: true,
+      separationMethod: 'mock',
+      transcriptionMethod: 'mock',
+    };
+  }
+
   try {
-    // Stage 2: upload the source to the separately deployed AI service.
+    // Stage 2: upload the source to an explicitly configured local/remote AI service.
     await progress(28, 'Uploading source to AI service');
     const form = new FormData();
     const outputFilename = `${jobId}-karaoke${path.extname(absSource) || '.mp4'}`;
@@ -161,15 +179,37 @@ export async function processKaraoke(
 }
 
 /* -------------------------------------------------------------------------- */
-/* subtitles — placeholder until /subtitles endpoint added on AI side          */
+/* subtitles — hosted demo path returns the downloaded source                  */
 /* -------------------------------------------------------------------------- */
 export async function processSubtitles(
   jobId: string,
-  data: { url: string },
+  data: { url: string; language?: string },
   progress: ProgressFn,
 ) {
-  await progress(50, 'Subtitles pipeline not yet implemented');
-  return { status: 'subtitles pipeline placeholder' };
+  await progress(5, 'Downloading source video');
+  const outTemplate = path.join(STORAGE, `${jobId}-subtitle-src.%(ext)s`);
+  const sourceFile = await downloadVideo(data.url, 'best[height<=720]', outTemplate);
+  const absSource = path.resolve(sourceFile);
+
+  if (!fs.existsSync(absSource)) {
+    throw new Error(`Downloaded file not found at ${absSource}`);
+  }
+
+  const finalFile = path.join(
+    STORAGE,
+    `${jobId}-subtitles${path.extname(absSource) || '.mp4'}`,
+  );
+  await progress(75, 'Preparing demo subtitle output');
+  fs.copyFileSync(absSource, finalFile);
+  fs.rmSync(absSource, { force: true });
+  await progress(100, 'Done (demo mode)');
+
+  return {
+    file: finalFile,
+    mock: true,
+    language: data.language || 'auto',
+    transcriptionMethod: 'mock',
+  };
 }
 
 function sleep(ms: number) {
@@ -179,4 +219,9 @@ function sleep(ms: number) {
 function normalizeServiceUrl(value: string) {
   const trimmed = value.replace(/\/+$/, '');
   return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+}
+
+function parseBoolean(value: string | undefined, defaultValue: boolean) {
+  if (value === undefined) return defaultValue;
+  return ['1', 'true', 'yes', 'on'].includes(value.trim().toLowerCase());
 }

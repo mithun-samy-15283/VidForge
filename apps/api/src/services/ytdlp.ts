@@ -16,6 +16,11 @@ function getYtDlpPath(): string {
     'yt-dlp',
   );
   if (fs.existsSync(localBin)) return localBin;
+  const bundledBin = path.resolve(
+    path.dirname(require.resolve('youtube-dl-exec')),
+    '../bin/yt-dlp',
+  );
+  if (fs.existsSync(bundledBin)) return bundledBin;
   return 'yt-dlp'; // fallback to PATH
 }
 

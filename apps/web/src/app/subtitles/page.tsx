@@ -73,8 +73,8 @@ export default function SubtitlesPage() {
             <span className="gradient-text">subtitles</span>
           </h1>
           <p className="text-gray-400 max-w-lg mx-auto">
-            Powered by OpenAI Whisper. Transcribe any video in 90+ languages with
-            word-level accuracy. Coming soon!
+            The public demo exercises the complete job flow and returns a playable
+            source copy without claiming that captions were generated.
           </p>
         </div>
 
@@ -136,13 +136,12 @@ export default function SubtitlesPage() {
           onReset={handleReset}
         />
 
-        {/* Placeholder notice */}
+        {/* Demo notice */}
         {!job && (
           <div className="mt-8 glass rounded-xl p-6 border border-yellow-500/20 bg-yellow-500/5 text-center">
             <p className="text-sm text-yellow-400">
-              🚧 <strong>Coming soon:</strong> The subtitle pipeline backend is a placeholder.
-              Karaoke generation is fully functional — try it from the{' '}
-              <a href="/karaoke" className="underline hover:text-yellow-300">Karaoke</a> page!
+              <strong>Demo mode:</strong> subtitle jobs download and return the source
+              video without transcription or burned-in captions.
             </p>
           </div>
         )}

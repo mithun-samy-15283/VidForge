@@ -6,7 +6,8 @@
 User → Next.js (web) → Express API (api) → BullMQ Queue → Worker
                                                             ├── yt-dlp  (download)
                                                             ├── ffmpeg  (transform)
-                                                            └── AI Engine (Python FastAPI)
+                                                            ├── built-in mock demo
+                                                            └── optional AI Engine (Python FastAPI)
                                                                      ├── Whisper
                                                                      └── Demucs
 ```
@@ -30,6 +31,11 @@ User → Next.js (web) → Express API (api) → BullMQ Queue → Worker
 - **Whisper**: best-in-class transcription, 90+ languages, free
 - **FastAPI**: clean async Python, perfect for ML serving
 - **Next.js 14 App Router**: server components, streaming, SEO
+
+The zero-cost public deployment uses Vercel for Next.js and one Render Free API
+service with the built-in mock processor. Set `AI_ENGINE_URL` and
+`MOCK_AI=false` only when running the Python AI engine separately for local
+development or on external compute.
 
 ## Scaling notes
 
