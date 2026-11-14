@@ -70,7 +70,7 @@ export async function signin(email: string, password: string): Promise<AuthRespo
 export async function getCurrentUser(token: string): Promise<AuthUser> {
   try {
     const { data } = await api.get<{ user: AuthUser }>('/api/auth/me', {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { 'X-VidForge-Token': token }
     });
     return data.user;
   } catch (error) {

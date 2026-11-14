@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import type { JobState } from '@/hooks/useJobPoller';
+import { downloadJobFile } from '@/lib/api';
 
 interface KaraokePreviewProps {
   job: JobState;
@@ -47,8 +48,11 @@ export function KaraokePreview({ job, className }: KaraokePreviewProps) {
   const [videoError, setVideoError] = useState(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const streamUrl = `/api/jobs/${job.id}/stream`;
-  const downloadUrl = `/api/jobs/${job.id}/file`;
+  const functionBaseUrl = (
+    process.env.NEXT_PUBLIC_FUNCTION_BASE_URL || '/server/vidforge_api'
+  ).replace(/\/+$/, '');
+  const streamUrl = `${functionBaseUrl}/api/jobs/${job.id}/stream`;
+  const downloadUrl = `${functionBaseUrl}/api/jobs/${job.id}/file`;
 
   // Auto-hide controls after inactivity
   const scheduleHide = useCallback(() => {
@@ -194,6 +198,28 @@ export function KaraokePreview({ job, className }: KaraokePreviewProps) {
 
   const separationMethod = job.returnvalue?.separationMethod;
   const transcriptionMethod = job.returnvalue?.transcriptionMethod;
+
+  if (job.returnvalue?.mock) {
+    return (
+      <div className={cn('animate-fadeIn glass rounded-2xl p-8 text-center', className)}>
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600">
+          <Music className="h-8 w-8 text-white" />
+        </div>
+        <h3 className="mt-5 text-2xl font-bold">Catalyst mock result is ready</h3>
+        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-gray-400">
+          This Development demo validates the authenticated Slate-to-Function job flow.
+          It intentionally returns a lightweight SVG artifact instead of processing media.
+        </p>
+        <button
+          onClick={() => downloadJobFile(job.id)}
+          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 px-5 py-2.5 text-sm font-medium shadow-lg shadow-green-500/20 hover:opacity-90"
+        >
+          <Download className="h-4 w-4" />
+          Download mock artifact
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('animate-fadeIn', className)}>

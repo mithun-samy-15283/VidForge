@@ -6,6 +6,7 @@ venv/
 .venv/
 
 # Build outputs
+.build/
 .next/
 .next-dev/
 dist/

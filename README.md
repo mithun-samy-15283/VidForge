@@ -56,124 +56,102 @@ npm run dev
 
 Open: http://localhost:3000
 
-## Zero-cost public demo deployment
+## Zoho Catalyst Development demo
 
-The practical free architecture is:
+The recommended lightweight deployment is now:
 
 ```
-Vercel Hobby (apps/web) → Render Free web service (apps/api)
-                                      ├── in-process mock job processor
-                                      └── Supabase Free Postgres (optional users)
+Catalyst Slate (apps/web)
+  └── Catalyst Advanced I/O function (functions/vidforge_api)
+        ├── Catalyst Data Store users
+        └── signed, stateless mock media jobs
 ```
 
-The public demo does not deploy Python, Whisper, or Demucs. With `MOCK_AI=true`,
-karaoke and subtitle jobs still download the source, report progress, and return
-a playable copy. This verifies the complete public job flow, but it does not
-remove vocals, transcribe speech, or burn captions. For local real karaoke
-processing, run `services/ai-engine`, set `MOCK_AI=false`, and set
-`AI_ENGINE_URL=http://localhost:5000`.
+The deployed Development demo preserves the downloader, karaoke, subtitles,
+signup, signin, profile, and settings flows without deploying the Python AI
+engine, Redis, Postgres, or AppSail. Mock jobs report progress and return a small
+SVG artifact; they do not download media, remove vocals, transcribe speech, or
+burn captions.
 
-### Deploy in this order
+### Authoritative Development context
 
-#### 1. Supabase Free Postgres (optional but recommended)
+| Resource | Value |
+|---|---|
+| Organization | `Mithun` (`60070227695`, India DC) |
+| Project | `Project-Rainfall` (`38904000000012039`) |
+| Slate app | `vidforge-web` (`10853000000032001`) |
+| AIO function | `vidforge_api` (`38904000000224001`) |
+| User table | `VidForgeUsers` (`38904000000222001`) |
+| CORS domain | `vidforge-web-uybblyds.onslate.in` (`38904000000214006`) |
+| Slate URL | https://vidforge-web-uybblyds.onslate.in |
+| Function URL | https://project-rainfall-60070227695.development.catalystserverless.in/server/vidforge_api/ |
 
-1. Create a Free project at [Supabase](https://supabase.com/dashboard).
-2. Open **Connect**, choose the transaction pooler connection string (best for
-   Render's IPv4 networking), replace the password placeholder, and ensure the
-   URL includes `sslmode=require`.
-3. Keep this value for Render as `DATABASE_URL`. Do not expose it to Vercel or
-   commit it.
+### Local Catalyst integration
 
-No manual migration is required. The API automatically creates this minimal
-table on its first auth request:
+Install dependencies, then run the complete Catalyst wrapper rather than
+`next dev`:
 
-```sql
-CREATE TABLE IF NOT EXISTS vidforge_users (
-  id UUID PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+```bash
+npm install
+VIDFORGE_JWT_SECRET="$(openssl rand -hex 32)" \
+NEXT_PUBLIC_FUNCTION_BASE_URL="http://localhost:3000/server/vidforge_api" \
+catalyst serve
 ```
 
-If `DATABASE_URL` is omitted, the API uses `STORAGE_DIR/users.json`. That
-fallback is suitable for local development only because Render Free storage is
-ephemeral.
+The CLI prints the actual local Slate and function URLs. Authentication depends
+on the Catalyst wrapper and the Development Data Store. The function owns all
+table access, stores bcrypt hashes, and accepts app sessions through the custom
+`X-VidForge-Token` header so Catalyst does not interpret them as platform OAuth
+tokens.
 
-#### 2. Render Free API
+### Development deployment
 
-1. Push the repository to GitHub, then open
-   [Deploy to Render](https://render.com/deploy?repo=https://github.com/mithun-samy-15283/VidForge).
-2. Apply [`render.yaml`](./render.yaml). It creates only one public
-   `vidforge-api` Docker web service on the Free plan, with no disk or private
-   services.
-3. Set `WEB_URL` to the exact Vercel production origin you intend to use, such
-   as `https://vidforge-demo.vercel.app`. Multiple origins are comma-separated;
-   preview deployments can use a scoped pattern such as
-   `https://vidforge-demo-*.vercel.app`.
-4. Set `DATABASE_URL` to the Supabase pooler URL, or leave it unset to use the
-   non-durable JSON fallback.
-5. Deploy and verify `https://YOUR-RENDER-SERVICE.onrender.com/api/health`.
-   Save the service origin for Vercel's `API_URL`.
+The workspace is linked by CLI-generated `.catalystrc` and `catalyst.json`.
+Do not recreate either file manually.
 
-Render generates `JWT_SECRET`. Do not rotate it unless you intend to invalidate
-existing login tokens. `STORAGE_DIR=/tmp/vidforge` intentionally stores job
-files only for the life of the free instance.
+```bash
+catalyst deploy --only functions:vidforge_api -ni
+catalyst deploy slate vidforge-web -ni
+```
 
-#### 3. Vercel Hobby frontend
+Before deploying the function, configure a random `VIDFORGE_JWT_SECRET` of at
+least 32 characters in the function's Development environment. Never expose it
+through a `NEXT_PUBLIC_*` variable or commit it. The public function origin is
+compiled into Slate through `apps/web/.env.production`.
 
-1. Import the same GitHub repository into [Vercel](https://vercel.com/new).
-2. Select **Next.js**, set **Root Directory** to `apps/web`, and leave the
-   commands at the repository defaults; [`apps/web/vercel.json`](./apps/web/vercel.json)
-   pins the framework and build command.
-3. Add `API_URL=https://YOUR-RENDER-SERVICE.onrender.com` for Production,
-   Preview, and Development.
-4. Deploy. The Next.js server rewrites `/api/*` to Render, so API requests stay
-   same-origin in the browser.
-5. If Vercel assigned a different production domain than the planned
-   `WEB_URL`, update `WEB_URL` on Render and redeploy the API.
+The Slate hostname must also be registered as a Catalyst Development CORS
+domain. If the Slate hostname changes, update the CORS resource and
+`functions/vidforge_api/index.js`, then redeploy the function.
 
-### Deployment environment variables
+### Cost and free-tier caveats
 
-| Service | Variable | Required | Value |
-|---|---|---:|---|
-| Render API | `WEB_URL` | Yes | Exact Vercel origin(s), comma-separated |
-| Render API | `JWT_SECRET` | Yes | Generated by Render Blueprint |
-| Render API | `JWT_EXPIRES_IN` | Yes | `7d` |
-| Render API | `MOCK_AI` | Yes for demo | `true` |
-| Render API | `DATABASE_URL` | No | Supabase Postgres pooler URL |
-| Render API | `STORAGE_DIR` | Yes | `/tmp/vidforge` |
-| Vercel web | `API_URL` | Yes | Public Render service origin |
-| Local API | `AI_ENGINE_URL` | No | Real Python AI engine origin |
+This mock architecture is likely to remain within Catalyst's free allowance for
+light demo traffic because it uses one small function, one Slate app, and one
+two-column Data Store table. Catalyst quotas and pricing can change, and builds,
+bandwidth, function invocations, execution time, and Data Store usage all count
+independently. The mock artifact is intentionally tiny; real media processing
+or storage would require a separate cost and architecture review.
 
-### Free-tier behavior and limits
+### Production promotion
 
-- **Render Free:** 750 free instance-hours per workspace each month. A service
-  idles after 15 minutes without inbound traffic and usually needs about a
-  minute to wake. Its filesystem is erased on restart, redeploy, or spin-down,
-  so active jobs, completed media, and JSON users are temporary.
-- **Vercel Hobby:** personal/non-commercial use, 100 GB Fast Data Transfer,
-  10 GB Fast Origin Transfer, 1,000,000 CDN requests, 4 Active CPU-hours, and
-  1,000,000 function invocations per month. Usage pauses when Hobby limits are
-  exhausted.
-- **Supabase Free:** two active projects, 500 MB database, 5 GB egress, and
-  1 GB file storage. Inactive projects pause after one week and may need to be
-  restored from the dashboard.
+Production is intentionally not configured or deployed. Promote only after:
 
-Free-tier quotas change; confirm the current
-[Render limits](https://render.com/docs/free),
-[Vercel Hobby limits](https://vercel.com/docs/plans/hobby), and
-[Supabase pricing](https://supabase.com/pricing) before a public launch.
+1. Recreating or migrating the `VidForgeUsers` schema in Production.
+2. Setting a new Production-only `VIDFORGE_JWT_SECRET`; never reuse Development.
+3. Deploying the function and verifying health, signup, signin, jobs, and files.
+4. Building Slate with the Production function origin.
+5. Registering the Production Slate hostname in Production CORS settings.
+6. Re-running the complete cross-origin flow before directing users to it.
 
-The API queue falls back to memory because this architecture does not provision
-Redis. Jobs and status disappear whenever Render restarts. This is intentionally
-a public demo architecture, not a durable production media pipeline.
+The legacy Express, Docker, Render, Vercel, Supabase, and Python files remain in
+the repository for non-Catalyst or full-processing experiments, but they are not
+part of this Catalyst mock deployment.
 
 ## 🔐 Auth Endpoints
 
 - `POST /api/auth/signup` → create user and return JWT
 - `POST /api/auth/signin` → authenticate and return JWT
-- `GET /api/auth/me` → fetch current user (`Authorization: Bearer <token>`)
+- `GET /api/auth/me` → fetch current user (`X-VidForge-Token: <token>`)
 
 ## 📁 Project Structure
 

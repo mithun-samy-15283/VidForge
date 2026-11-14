@@ -1,0 +1,15 @@
+{
+  "functions": {
+    "targets": [
+      "vidforge_api"
+    ],
+    "ignore": [],
+    "source": "functions"
+  },
+  "slate": [
+    {
+      "name": "vidforge-web",
+      "source": "/Users/mithun-15283/Documents/Github Pets/copilot-worktrees/AllInAllSynthesizer/mithun-samy-15283-didactic-doodle/apps/web"
+    }
+  ]
+}

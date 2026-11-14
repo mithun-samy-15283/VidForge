@@ -9,14 +9,14 @@ const SETTINGS = [
   {
     icon: Shield,
     title: 'Authentication',
-    description: 'JWT session is active on this browser.',
+    description: 'A signed Catalyst Function session is active on this browser.',
     value: 'Signed in'
   },
   {
     icon: Database,
     title: 'Account storage',
-    description: 'User accounts are currently stored in local development storage.',
-    value: 'Local JSON'
+    description: 'User accounts are stored in the Catalyst Development Data Store.',
+    value: 'Data Store'
   },
   {
     icon: Bell,
@@ -73,7 +73,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="font-semibold text-white">Account actions</h2>
                 <p className="mt-1 text-sm text-gray-400">
-                  Sign out clears the local token from this browser.
+                  Sign out clears the Catalyst demo token from this browser.
                 </p>
               </div>
               <button

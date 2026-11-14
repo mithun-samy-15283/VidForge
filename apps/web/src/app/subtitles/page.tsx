@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback } from 'react';
 import { Languages, Link as LinkIcon, Loader2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import { api, downloadJobFile } from '@/lib/api';
 import { useJobPoller } from '@/hooks/useJobPoller';
 import { JobProgress } from '@/components/JobProgress';
 
@@ -46,9 +46,9 @@ export default function SubtitlesPage() {
     }
   }, [url, language, start]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!job?.id) return;
-    window.open(`/api/jobs/${job.id}/file`, '_blank');
+    await downloadJobFile(job.id);
   }, [job]);
 
   const handleReset = useCallback(() => {

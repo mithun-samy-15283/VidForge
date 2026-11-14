@@ -69,8 +69,8 @@ export default function ProfilePage() {
               <div>
                 <h2 className="text-lg font-semibold">Basic profile</h2>
                 <p className="mt-2 text-sm leading-6 text-gray-400">
-                  This profile is connected to your local VidForge auth account. More profile fields
-                  can be added here later when the app moves from local file storage to a production database.
+                  This profile is backed by the Project-Rainfall Development Data Store. The
+                  Catalyst function owns all account access, so password hashes never reach Slate.
                 </p>
               </div>
             </div>
