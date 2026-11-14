@@ -3,18 +3,20 @@
 import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { setAuthToken, signup } from '@/lib/auth';
+import { AuthApiError, setAuthToken, signup } from '@/lib/auth';
 
 export default function SignUpPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showSigninHelp, setShowSigninHelp] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
+    setShowSigninHelp(false);
     setLoading(true);
     try {
       const result = await signup(email, password);
@@ -22,7 +24,13 @@ export default function SignUpPage() {
       router.push('/');
       router.refresh();
     } catch (err: any) {
-      setError(err.message || 'Sign up failed');
+      const authError = err as AuthApiError;
+      if (authError.code === 'AUTH_EMAIL_EXISTS') {
+        setError(`An account already exists for ${email.trim().toLowerCase()}.`);
+        setShowSigninHelp(true);
+      } else {
+        setError(authError.message || 'Sign up failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -65,9 +73,17 @@ export default function SignUpPage() {
           </div>
 
           {error ? (
-            <p className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
-              {error}
-            </p>
+            <div className="text-sm text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">
+              <p>{error}</p>
+              {showSigninHelp ? (
+                <p className="mt-1">
+                  <Link href="/signin" className="text-rose-200 underline hover:text-white">
+                    Sign in to the existing account
+                  </Link>
+                  .
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           <button

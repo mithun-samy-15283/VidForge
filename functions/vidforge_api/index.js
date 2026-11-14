@@ -213,30 +213,24 @@ app.use((error, _req, res, _next) => {
 
 function cors(req, res, next) {
   const origin = req.headers.origin;
-  if (origin && isAllowedOrigin(origin)) {
+  if (origin && isLocalOrigin(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-VidForge-Token');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   }
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-VidForge-Token');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 
   if (req.method === 'OPTIONS') {
-    return res.status(origin && !isAllowedOrigin(origin) ? 403 : 204).end();
+    return res.status(origin && !isLocalOrigin(origin) ? 403 : 204).end();
   }
   return next();
 }
 
-function isAllowedOrigin(origin) {
+function isLocalOrigin(origin) {
   try {
     const { hostname, protocol } = new URL(origin);
-    return (
-      (protocol === 'http:' && ['localhost', '127.0.0.1'].includes(hostname)) ||
-      (protocol === 'https:' &&
-        (hostname.endsWith('.onslate.com') ||
-          hostname.endsWith('.onslate.in') ||
-          hostname.endsWith('.catalystserverless.in')))
-    );
+    return protocol === 'http:' && ['localhost', '127.0.0.1'].includes(hostname);
   } catch {
     return false;
   }
